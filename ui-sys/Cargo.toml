@@ -50,4 +50,5 @@ libc = "0.2"
 [build-dependencies]
 bindgen = "0.31"
 cmake = "0.1"
+git2 = "0.8"
 pkg-config = "0.3"

@@ -1,5 +1,6 @@
 extern crate bindgen;
 extern crate cmake;
+extern crate git2;
 extern crate pkg_config;
 
 use bindgen::Builder as BindgenBuilder;
@@ -8,7 +9,6 @@ use pkg_config::probe_library;
 
 use std::env;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 #[derive(Clone, Copy)]
 enum Target {
@@ -57,23 +57,26 @@ fn with_feature(s: &str) -> bool {
 
 fn fetch_submodule() {
     if with_feature("fetch") {
-        // Init or update the submodule with libui if needed
-        if !Path::new("libui/.git").exists() {
-            Command::new("git")
-                .args(&["version"])
-                .status()
-                .expect("Git does not appear to be installed. Error");
-
-            if let Err(e) = Command::new("git")
-                .args(&["submodule", "update", "--init"])
-                .status() {
-                println!("cargo:warning={}", "Could not update libui submodule: {}", e);
+        let repo = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+        let repo = match git2::Repository::open(&repo) {
+            Ok(repo) => repo,
+            Err(e) => {
+                println!("cargo:warning={}{}", "Failed to open ui-sys repo: ", e);
+                return;
             }
-        } else {
-            Command::new("git")
-                .args(&["submodule", "update", "--recursive"])
-                .status()
-                .expect("Unable to update libui submodule. Error");
+        };
+
+        let mut submodule = match repo.find_submodule("libui") {
+            Ok(s) => s,
+            Err(e) => {
+                println!("cargo:warning={}{}", "Failed to open libui submodule: ", e);
+                return;
+            }
+        };
+
+        if let Err(e) = submodule.update(true, None) {
+            println!("cargo:warning={}{}", "Failed to update libui submodule: ", e);
+            return;
         }
     }
 }
