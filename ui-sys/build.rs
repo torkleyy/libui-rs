@@ -63,10 +63,12 @@ fn fetch_submodule() {
                 .args(&["version"])
                 .status()
                 .expect("Git does not appear to be installed. Error");
-            Command::new("git")
+
+            if let Err(e) = Command::new("git")
                 .args(&["submodule", "update", "--init"])
-                .status()
-                .expect("Unable to init libui submodule. Error");
+                .status() {
+                println!("cargo:warning={}", "Could not update libui submodule: {}", e);
+            }
         } else {
             Command::new("git")
                 .args(&["submodule", "update", "--recursive"])
