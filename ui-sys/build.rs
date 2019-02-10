@@ -1,8 +1,10 @@
 extern crate bindgen;
 extern crate cmake;
+extern crate pkg_config;
 
 use bindgen::Builder as BindgenBuilder;
-use cmake::Config;
+use cmake::Config as CmakeConfig;
+use pkg_config::probe_library;
 
 use std::env;
 use std::path::{Path, PathBuf};
@@ -12,6 +14,7 @@ use std::process::Command;
 enum Target {
     Apple,
     Msvc,
+    Linux,
     Other,
 }
 
@@ -37,6 +40,8 @@ impl Target {
             Target::Msvc
         } else if target.contains("apple") {
             Target::Apple
+        } else if target.contains("linux") {
+            Target::Linux
         } else {
             Target::Other
         }
@@ -86,12 +91,19 @@ fn generate_bindings() {
 }
 
 /// Builds the native library, returning the output dir.
-fn build_native(target: Target) -> PathBuf {
-    let mut cfg = Config::new("libui");
+fn build_native(target: Target, build_static: bool) -> PathBuf {
+    let mut cfg = CmakeConfig::new("libui");
     cfg.build_target("").profile("release");
+
+    if build_static {
+        cfg.define("BUILD_SHARED_LIBS", "OFF");
+    }
 
     if target.is_apple() {
         cfg.cxxflag("--stdlib=libc++");
+
+        // FIXME: workaround for https://github.com/andlabs/libui/issues/439
+        //cfg.cxxflag("-Wno-c++11-narrowing");
     }
 
     let mut dst = cfg.build();
@@ -110,9 +122,9 @@ fn build_native(target: Target) -> PathBuf {
 /// Builds the native library if the `build` feature is enabled.
 /// Returns the output directory if there was a fresh build.
 /// Otherwise, returns `./lib`.
-fn native_dst(target: Target) -> PathBuf {
+fn native_dst(target: Target, build_static: bool) -> PathBuf {
     if with_feature("build") {
-        build_native(target)
+        build_native(target, build_static)
     } else {
         // TODO: should this be pwd/lib or CARGO_MANIFEST_DIR/lib?
         let mut dst = env::current_dir().expect("Unable to retrieve current directory location.");
@@ -130,13 +142,29 @@ fn native_libname(target: Target) -> &'static str {
     }
 }
 
+fn pkg_config(target: Target) {
+    match target {
+        Target::Linux => {
+            probe_library("gtk+-3.0").expect("Failed to probe gtk3");
+        }
+        _ => unimplemented!(),
+    }
+}
+
 fn link_native() {
+    let build_static = true;
+
     let target = Target::determine();
-    let dst = native_dst(target);
+    let dst = native_dst(target, build_static);
     let libname = native_libname(target);
 
     println!("cargo:rustc-link-search=native={}", dst.display());
-    println!("cargo:rustc-link-lib={}", libname);
+    if build_static {
+        pkg_config(target);
+        println!("cargo:rustc-link-lib=static={}", libname);
+    } else {
+        println!("cargo:rustc-link-lib={}", libname);
+    }
 }
 
 fn main() {
