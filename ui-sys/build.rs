@@ -149,10 +149,20 @@ fn native_libname(target: Target) -> &'static str {
 
 fn pkg_config(target: Target) {
     match target {
+        Target::Apple => {
+            unimplemented!("Static build for macOS is not yet implemented")
+        }
         Target::Linux => {
             probe_library("gtk+-3.0").expect("Failed to probe gtk3");
         }
-        _ => unimplemented!(),
+        Target::Msvc => {
+            for lib in &[
+                "comctl32", "ole32", "oleaut32", "d2d1", "uxtheme", "dwrite", "stdc++",
+            ] {
+                println!("cargo:rustc-link-lib={}", lib);
+            }
+        }
+        _ => unimplemented!("Unsupported platform"),
     }
 }
 
