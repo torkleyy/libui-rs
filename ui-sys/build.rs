@@ -57,25 +57,26 @@ fn with_feature(s: &str) -> bool {
 
 fn fetch_submodule() {
     if with_feature("fetch") {
-        let repo = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+        let mut repo = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+        repo.pop();
         let repo = match git2::Repository::open(&repo) {
             Ok(repo) => repo,
             Err(e) => {
-                println!("cargo:warning={}{}", "Failed to open ui-sys repo: ", e);
+                println!("cargo:warning={}{}", "Failed to open libui repo: ", e);
                 return;
             }
         };
 
-        let mut submodule = match repo.find_submodule("libui") {
+        let mut submodule = match repo.find_submodule("ui-sys/libui") {
             Ok(s) => s,
             Err(e) => {
-                println!("cargo:warning={}{}", "Failed to open libui submodule: ", e);
+                println!("cargo:warning={}{}", "Failed to open ui-sys submodule: ", e);
                 return;
             }
         };
 
         if let Err(e) = submodule.update(true, None) {
-            println!("cargo:warning={}{}", "Failed to update libui submodule: ", e);
+            println!("cargo:warning={}{}", "Failed to update ui-sys submodule: ", e);
             return;
         }
     }
