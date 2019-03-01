@@ -36,7 +36,7 @@ impl Target {
     pub fn determine() -> Self {
         let target = env::var("TARGET").unwrap();
 
-        if target.contains("msvc") {
+        if target.contains("windows") {
             Target::Msvc
         } else if target.contains("apple") {
             Target::Apple
