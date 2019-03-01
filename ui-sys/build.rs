@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Copy)]
 enum Target {
     Apple,
+    Mingw,
     Msvc,
     Linux,
     Other,
@@ -36,8 +37,10 @@ impl Target {
     pub fn determine() -> Self {
         let target = env::var("TARGET").unwrap();
 
-        if target.contains("windows") {
+        if target.contains("msvc") {
             Target::Msvc
+        } else if target.contains("windows") {
+            Target::Mingw
         } else if target.contains("apple") {
             Target::Apple
         } else if target.contains("linux") {
@@ -157,7 +160,7 @@ fn pkg_config(target: Target) {
             probe_library("gtk+-3.0").expect("Failed to probe gtk3");
         }
         // TODO: should be Windows (we want this on MinGW, too)
-        Target::Msvc => {
+        Target::Msvc | Target::Mingw => {
             for lib in &[
                 "comctl32", "ole32", "oleaut32", "d2d1", "uxtheme", "dwrite", "stdc++",
             ] {
